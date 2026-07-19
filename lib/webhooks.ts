@@ -10,8 +10,14 @@ import { publicPayment } from "@/lib/payments";
 export async function notifyMerchant(merchant: Merchant, payment: Payment) {
   if (!merchant.webhookUrl) return;
 
+  const EVENTS: Record<string, string> = {
+    successful: "payment.successful",
+    failed: "payment.failed",
+    refunded: "payment.refunded",
+    partially_refunded: "payment.refunded",
+  };
   const event = {
-    event: payment.status === "successful" ? "payment.successful" : "payment.failed",
+    event: EVENTS[payment.status] ?? "payment.updated",
     data: publicPayment(payment),
   };
   const body = JSON.stringify(event);
