@@ -16,7 +16,8 @@ import {
   PanelLeftOpen,
   Menu,
   X,
-  Activity
+  Activity,
+  ArrowUpRight,
 } from "lucide-react";
 
 // Navigation routing based on existing dashboard structure[cite: 1]
@@ -29,6 +30,7 @@ const NAV_GROUPS = [
       { name: "Customers", href: "/dashboard/customers", icon: Users },
       { name: "Invoices", href: "/dashboard/invoices", icon: FileText },
       { name: "Virtual Accounts", href: "/dashboard/virtual-accounts", icon: Wallet },
+      { name: "Payouts", href: "/dashboard/payouts", icon: ArrowUpRight },
     ],
   },
   {
