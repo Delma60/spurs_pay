@@ -1,7 +1,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import type {
   PaymentProvider, PaymentMethod, ChargeInput, ChargeResult, MethodInput,
-  TransferInstructions, UssdInstructions, NormalizedWebhook,
+  TransferInstructions, UssdInstructions, NormalizedWebhook, Bank, TransferInput, TransferResult,
 } from "./types";
 
 // Works with zero credentials — simulates a processor so the whole Spurs Pay
@@ -43,5 +43,45 @@ export class SandboxProvider implements PaymentProvider {
   verifyWebhook(): { valid: boolean; event?: NormalizedWebhook } {
     // Sandbox has no real processor callbacks; transfers/USSD are confirmed on-page.
     return { valid: false };
+  }
+
+  /* ------------------------- payouts (money out) ------------------------- */
+
+  async listBanks(): Promise<Bank[]> {
+    return [
+      { name: "Spurs Test Bank", code: "001" },
+      { name: "Access Bank", code: "044" },
+      { name: "First Bank of Nigeria", code: "011" },
+      { name: "Guaranty Trust Bank", code: "058" },
+      { name: "United Bank for Africa", code: "033" },
+      { name: "Zenith Bank", code: "057" },
+      { name: "Kuda Bank", code: "090267" },
+      { name: "Opay", code: "999992" },
+    ];
+  }
+
+  /**
+   * Deterministic fake resolution: any 10-digit number resolves to a stable
+   * name, so tests are repeatable. Numbers ending in 0000 are "not found".
+   */
+  async resolveAccount(bankCode: string, accountNumber: string): Promise<{ accountName: string } | null> {
+    await new Promise((r) => setTimeout(r, 200));
+    if (!/^\d{10}$/.test(accountNumber) || accountNumber.endsWith("0000")) return null;
+
+    const FIRST = ["ADA", "CHIDI", "NGOZI", "EMEKA", "AISHA", "TUNDE", "ZAINAB", "BOLA"];
+    const LAST = ["OKAFOR", "ADEYEMI", "IBRAHIM", "OKONKWO", "BALOGUN", "ELUEMUNO"];
+    const n = Number(accountNumber);
+    return { accountName: `${FIRST[n % FIRST.length]} ${LAST[Math.floor(n / 7) % LAST.length]}` };
+  }
+
+  /** Simulated payout. Test rule: an amount ending in 99 fails. */
+  async transfer(input: TransferInput): Promise<TransferResult> {
+    await new Promise((r) => setTimeout(r, 400));
+    const failed = String(input.amount).endsWith("99");
+    return {
+      status: failed ? "failed" : "successful",
+      providerReference: "sbxt_" + randomBytes(8).toString("hex"),
+      message: failed ? "Transfer declined by bank (test)" : "Transfer completed",
+    };
   }
 }

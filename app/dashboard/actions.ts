@@ -8,6 +8,7 @@ import { refundPayment } from "@/lib/refunds";
 import { createInvoice, voidInvoice } from "@/lib/invoices";
 import { createVirtualAccount } from "@/lib/virtual-accounts";
 import { issueCard, setCardFrozen } from "@/lib/cards";
+import { createRecipient, createPayout } from "@/lib/transfers";
 
 export async function createKeyAction(name: string): Promise<{ key: string }> {
   const m = await requireMerchant();
@@ -42,6 +43,39 @@ export async function refundAction(reference: string, amountMinor?: number, reas
   await refundPayment(m.sub, reference, amountMinor, reason);
   revalidatePath(`/dashboard/payments/${reference}`);
   revalidatePath("/dashboard/payments");
+}
+
+export async function createRecipientAction(formData: FormData) {
+  const m = await requireMerchant();
+  const bankCode = String(formData.get("bankCode") ?? "");
+  const accountNumber = String(formData.get("accountNumber") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim() || undefined;
+
+  try {
+    await createRecipient(m.sub, { bankCode, accountNumber, name });
+  } catch (e) {
+    redirect(`/dashboard/payouts?error=${encodeURIComponent((e as Error).message)}`);
+  }
+  revalidatePath("/dashboard/payouts");
+  redirect("/dashboard/payouts?ok=Recipient+saved");
+}
+
+export async function createPayoutAction(formData: FormData) {
+  const m = await requireMerchant();
+  const recipientId = String(formData.get("recipientId") ?? "");
+  const amount = Math.round(Number(formData.get("amount")) * 100); // major → minor
+  const narration = String(formData.get("narration") ?? "").trim() || undefined;
+
+  if (!recipientId) redirect("/dashboard/payouts?error=Choose+a+recipient");
+  if (!Number.isInteger(amount) || amount <= 0) redirect("/dashboard/payouts?error=Enter+a+valid+amount");
+
+  try {
+    await createPayout(m.sub, { recipientId, amount, narration });
+  } catch (e) {
+    redirect(`/dashboard/payouts?error=${encodeURIComponent((e as Error).message)}`);
+  }
+  revalidatePath("/dashboard/payouts");
+  redirect("/dashboard/payouts?ok=Payout+sent");
 }
 
 export async function createInvoiceAction(formData: FormData) {
