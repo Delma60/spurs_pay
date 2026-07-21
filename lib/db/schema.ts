@@ -131,6 +131,46 @@ export const issuedCards = pay.table(
   (t) => [index("cards_merchant_idx").on(t.merchantId)],
 );
 
+/** A saved bank account a merchant can pay out to. */
+export const recipients = pay.table(
+  "recipients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    merchantId: text("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),                      // merchant's own label
+    bankName: text("bank_name").notNull(),
+    bankCode: text("bank_code").notNull(),
+    accountNumber: text("account_number").notNull(),
+    accountName: text("account_name").notNull(),       // resolved from the bank
+    currency: text("currency").notNull().default("NGN"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("recipients_merchant_idx").on(t.merchantId)],
+);
+
+/** Money leaving the platform: a payout to a recipient's bank account. */
+export const payouts = pay.table(
+  "payouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    merchantId: text("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
+    recipientId: uuid("recipient_id").notNull().references(() => recipients.id, { onDelete: "restrict" }),
+    reference: text("reference").notNull(),            // spo_… (public)
+    amount: integer("amount").notNull(),               // minor units
+    currency: text("currency").notNull().default("NGN"),
+    status: text("status").notNull().default("pending"), // pending | successful | failed
+    narration: text("narration"),
+    failureReason: text("failure_reason"),
+    provider: text("provider"),                        // internal — hidden from API
+    providerReference: text("provider_reference"),     // internal — hidden from API
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("payouts_reference_idx").on(t.reference), index("payouts_merchant_idx").on(t.merchantId)],
+);
+
+export type Recipient = typeof recipients.$inferSelect;
+export type Payout = typeof payouts.$inferSelect;
 export type Merchant = typeof merchants.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Refund = typeof refunds.$inferSelect;
