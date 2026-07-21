@@ -29,6 +29,7 @@ export const apiKeys = pay.table("api_keys", {
   id: uuid("id").primaryKey().defaultRandom(),
   merchantId: text("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  mode: text("mode").notNull().default("test"),      // test | live
   prefix: text("prefix").notNull(),
   keyHash: text("key_hash").notNull(),
   revoked: boolean("revoked").notNull().default(false),
@@ -43,6 +44,7 @@ export const payments = pay.table(
     id: uuid("id").primaryKey().defaultRandom(),
     merchantId: text("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
     reference: text("reference").notNull(),           // Spurs Pay reference (public)
+    mode: text("mode").notNull().default("test"),     // test | live — test never moves real money
     amount: integer("amount").notNull(),              // minor units (kobo/cents)
     currency: text("currency").notNull().default("NGN"),
     status: text("status").notNull().default("pending"), // pending | successful | failed | refunded | partially_refunded
@@ -156,6 +158,7 @@ export const payouts = pay.table(
     merchantId: text("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
     recipientId: uuid("recipient_id").notNull().references(() => recipients.id, { onDelete: "restrict" }),
     reference: text("reference").notNull(),            // spo_… (public)
+    mode: text("mode").notNull().default("test"),      // test | live (matches the merchant's balance)
     amount: integer("amount").notNull(),               // minor units
     currency: text("currency").notNull().default("NGN"),
     status: text("status").notNull().default("pending"), // pending | successful | failed
@@ -171,9 +174,43 @@ export const payouts = pay.table(
 
 export type Recipient = typeof recipients.$inferSelect;
 export type Payout = typeof payouts.$inferSelect;
+/** Idempotency keys: a client's `Idempotency-Key` → the payment it created. */
+export const idempotencyKeys = pay.table(
+  "idempotency_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    merchantId: text("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    reference: text("reference").notNull(),           // the payment reference produced
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("idempotency_merchant_key_idx").on(t.merchantId, t.key)],
+);
+
+/** A card token. The PAN is NEVER stored — only the last 4 and expiry. */
+export const cardTokens = pay.table(
+  "card_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    token: text("token").notNull(),                   // tok_… (public handle)
+    merchantId: text("merchant_id").references(() => merchants.id, { onDelete: "cascade" }),
+    mode: text("mode").notNull().default("test"),
+    brand: text("brand").notNull(),                   // Visa | Mastercard | …
+    last4: text("last4").notNull(),
+    expMonth: text("exp_month").notNull(),
+    expYear: text("exp_year").notNull(),
+    providerToken: text("provider_token"),            // internal — the processor's token
+    used: boolean("used").notNull().default(false),   // single-use unless vaulted
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("card_tokens_token_idx").on(t.token)],
+);
+
 export type Merchant = typeof merchants.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Refund = typeof refunds.$inferSelect;
+export type CardToken = typeof cardTokens.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type VirtualAccount = typeof virtualAccounts.$inferSelect;
 export type IssuedCard = typeof issuedCards.$inferSelect;

@@ -26,14 +26,20 @@ export async function getMerchant(id: string) {
   return m ?? null;
 }
 
-/** Issue a merchant API key — secret returned once, only its hash stored. */
-export async function createMerchantKey(merchantId: string, name: string) {
-  const raw = "spk_" + randomBytes(24).toString("base64url");
+export type KeyMode = "test" | "live";
+
+/**
+ * Issue a merchant API key — secret returned once, only its hash stored.
+ * The mode is in the key itself (`sk_test_…` / `sk_live_…`): a test key only ever
+ * touches the sandbox processor, a live key the real one.
+ */
+export async function createMerchantKey(merchantId: string, name: string, mode: KeyMode = "test") {
+  const raw = `sk_${mode}_` + randomBytes(24).toString("base64url");
   const [row] = await db
     .insert(apiKeys)
-    .values({ merchantId, name, prefix: raw.slice(0, 12), keyHash: hashKey(raw) })
+    .values({ merchantId, name, mode, prefix: raw.slice(0, 16), keyHash: hashKey(raw) })
     .returning();
-  return { key: raw, id: row.id };
+  return { key: raw, id: row.id, mode };
 }
 
 /** List a merchant's API keys (no secrets — only prefixes). */
