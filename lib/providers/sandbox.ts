@@ -1,7 +1,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import type {
   PaymentProvider, PaymentMethod, ChargeInput, ChargeResult, MethodInput,
-  TransferInstructions, UssdInstructions, NormalizedWebhook, Bank, TransferInput, TransferResult,
+  TransferInstructions, UssdInstructions, NormalizedWebhook, Bank, TransferInput, TransferResult, VirtualAccountInput, VirtualAccountResult,
 } from "./types";
 
 // Works with zero credentials — simulates a processor so the whole Spurs Pay
@@ -16,6 +16,27 @@ export class SandboxProvider implements PaymentProvider {
     await new Promise((r) => setTimeout(r, 300)); // pretend network latency
     const digits = input.card.number.replace(/\s+/g, "");
     const declined = digits.endsWith("0000");
+    return {
+      status: declined ? "failed" : "successful",
+      providerReference: "sbx_" + randomBytes(8).toString("hex"),
+      message: declined ? "Card declined (test)" : "Approved",
+    };
+  }
+
+  async createVirtualAccount(input: VirtualAccountInput): Promise<VirtualAccountResult> {
+    // A real provider (Flutterwave / PaymentPoint / Moniepoint) returns a
+    // partner-bank NUBAN here. In sandbox we mint a stable fake one.
+    return {
+      bankName: "Spurs Test Bank",
+      accountNumber: String(randomInt(1_000_000_000, 9_999_999_999)),
+      accountName: `SPURS/${input.customerName.toUpperCase()}`.slice(0, 40),
+      providerRef: "sbxva_" + randomBytes(8).toString("hex"),
+    };
+  }
+
+  async chargeToken(input: MethodInput & { providerToken: string }): Promise<ChargeResult> {
+    await new Promise((r) => setTimeout(r, 300));
+    const declined = input.providerToken === "sbx_decline";
     return {
       status: declined ? "failed" : "successful",
       providerReference: "sbx_" + randomBytes(8).toString("hex"),

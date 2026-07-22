@@ -62,6 +62,24 @@ export interface Bank {
   code: string;
 }
 
+/** Request to open a dedicated virtual account (NUBAN) for a customer. */
+export interface VirtualAccountInput {
+  /** Who the account is for (a Spurs user id), used as the provider reference. */
+  reference: string;
+  customerName: string;
+  customerEmail?: string;
+  currency?: string;
+}
+
+/** A dedicated account that collects bank transfers for one customer. */
+export interface VirtualAccountResult {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  /** The processor's own id for the account (internal — never exposed raw). */
+  providerRef: string;
+}
+
 /** Money going OUT to a bank account. */
 export interface TransferInput {
   amount: number; // minor units
@@ -85,6 +103,8 @@ export interface PaymentProvider {
   readonly supportedMethods: PaymentMethod[];
   /** Charge a card synchronously. Runs server-side; provider stays hidden. */
   charge(input: ChargeInput): Promise<ChargeResult>;
+  /** Charge a previously-created token (the PAN never reaches this path). */
+  chargeToken?(input: MethodInput & { providerToken: string }): Promise<ChargeResult>;
   /** Create bank-transfer instructions. Payment settles later via webhook. */
   createTransfer?(input: MethodInput): Promise<TransferInstructions>;
   /** Create USSD instructions. Payment settles later via webhook. */
@@ -100,4 +120,9 @@ export interface PaymentProvider {
   resolveAccount?(bankCode: string, accountNumber: string): Promise<{ accountName: string } | null>;
   /** Send money to a bank account. */
   transfer?(input: TransferInput): Promise<TransferResult>;
+
+  /* ------------------- dedicated virtual accounts ------------------- */
+
+  /** Open a dedicated NUBAN a customer can fund by bank transfer. */
+  createVirtualAccount?(input: VirtualAccountInput): Promise<VirtualAccountResult>;
 }

@@ -21,7 +21,7 @@ export interface Balance {
  *
  * Pending payouts are held back so the same money can't be sent twice.
  */
-export async function getBalance(merchantId: string, currency = "NGN"): Promise<Balance> {
+export async function getBalance(merchantId: string, currency = "NGN", mode: "test" | "live" = "live"): Promise<Balance> {
   const [paid, sent] = await Promise.all([
     db.select().from(payments).where(eq(payments.merchantId, merchantId)),
     db.select().from(payouts).where(eq(payouts.merchantId, merchantId)),
@@ -29,7 +29,7 @@ export async function getBalance(merchantId: string, currency = "NGN"): Promise<
 
   let collected = 0;
   for (const p of paid) {
-    if (p.currency !== currency) continue;
+    if (p.currency !== currency || p.mode !== mode) continue;
     if (p.status === "successful" || p.status === "refunded" || p.status === "partially_refunded") {
       collected += p.amount - (p.refundedAmount ?? 0);
     }
@@ -37,7 +37,7 @@ export async function getBalance(merchantId: string, currency = "NGN"): Promise<
 
   let paidOut = 0;
   for (const p of sent) {
-    if (p.currency !== currency) continue;
+    if (p.currency !== currency || p.mode !== mode) continue;
     if (p.status === "successful" || p.status === "pending") paidOut += p.amount;
   }
 
@@ -135,21 +135,22 @@ export async function recipientsFor(payoutList: Payout[]): Promise<Map<string, R
  */
 export async function createPayout(
   merchantId: string,
-  input: { recipientId: string; amount: number; narration?: string },
+  input: { recipientId: string; amount: number; narration?: string; mode?: "test" | "live" },
 ): Promise<Payout> {
   if (!Number.isInteger(input.amount) || input.amount <= 0) {
     throw new Error("Amount must be a positive integer (minor units)");
   }
+  const mode = input.mode ?? "live";
 
   const recipient = await getRecipient(merchantId, input.recipientId);
   if (!recipient) throw new Error("Recipient not found");
 
-  const balance = await getBalance(merchantId, recipient.currency);
+  const balance = await getBalance(merchantId, recipient.currency, mode);
   if (input.amount > balance.available) {
     throw new Error("Insufficient balance for this payout");
   }
 
-  const provider = resolveProvider();
+  const provider = resolveProvider(mode);
   if (!provider.transfer) throw new Error("Payouts are unavailable");
 
   const reference = "spo_" + randomBytes(12).toString("hex");
@@ -159,6 +160,7 @@ export async function createPayout(
       merchantId,
       recipientId: recipient.id,
       reference,
+      mode,
       amount: input.amount,
       currency: recipient.currency,
       narration: input.narration ?? null,

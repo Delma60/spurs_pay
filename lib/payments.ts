@@ -11,12 +11,15 @@ export interface CreatePaymentInput {
   callbackUrl?: string;
   metadata?: Record<string, unknown>;
   reference?: string; // merchant-supplied idempotent ref; generated if absent
+  mode?: "test" | "live"; // stamped from the creating key; defaults to test
 }
 
 /** The shape returned to merchants/customers — never leaks provider details. */
 export function publicPayment(p: Payment) {
   return {
     reference: p.reference,
+    mode: p.mode,
+    livemode: p.mode === "live",
     amount: p.amount,
     currency: p.currency,
     status: p.status,
@@ -40,6 +43,7 @@ export async function createPayment(merchantId: string, input: CreatePaymentInpu
     .insert(payments)
     .values({
       merchantId,
+      mode: input.mode ?? "test",
       reference: input.reference ?? newReference(),
       amount: input.amount,
       currency: input.currency ?? "NGN",
@@ -58,9 +62,10 @@ export async function getPayment(reference: string) {
 }
 
 /** A merchant's payments, newest first, optionally filtered by status. */
-export async function listPayments(merchantId: string, opts: { status?: string; limit?: number } = {}) {
+export async function listPayments(merchantId: string, opts: { status?: string; limit?: number; mode?: "test" | "live" } = {}) {
   const conds = [eq(payments.merchantId, merchantId)];
   if (opts.status) conds.push(eq(payments.status, opts.status));
+  if (opts.mode) conds.push(eq(payments.mode, opts.mode));
   return db
     .select()
     .from(payments)

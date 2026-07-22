@@ -10,9 +10,10 @@ import { createVirtualAccount } from "@/lib/virtual-accounts";
 import { issueCard, setCardFrozen } from "@/lib/cards";
 import { createRecipient, createPayout } from "@/lib/transfers";
 
-export async function createKeyAction(name: string): Promise<{ key: string }> {
+export async function createKeyAction(name: string, mode: "test" | "live" = "test"): Promise<{ key: string }> {
   const m = await requireMerchant();
-  const { key } = await createMerchantKey(m.sub, name.trim() || "API key");
+  const safeMode = mode === "live" ? "live" : "test";
+  const { key } = await createMerchantKey(m.sub, name.trim() || "API key", safeMode);
   revalidatePath("/dashboard/keys");
   return { key };
 }

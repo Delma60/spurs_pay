@@ -9,6 +9,7 @@ export default async function KeysPage() {
   const serialized = keys.map((k) => ({
     id: k.id,
     name: k.name,
+    mode: (k.mode as "test" | "live") ?? "test",
     prefix: k.prefix,
     revoked: k.revoked,
     createdAt: k.createdAt.toISOString(),

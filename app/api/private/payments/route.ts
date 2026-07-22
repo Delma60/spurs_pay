@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
   try {
     // Make sure the merchant exists (idempotent) before charging them.
     await ensureMerchant(merchant, businessName ?? "Spurs user");
-    const p = await createPayment(merchant, input);
+    // Trusted first-party services (billing, wallet, cloud) move real money.
+    const p = await createPayment(merchant, { ...input, mode: "live" });
     return NextResponse.json({ data: publicPayment(p) }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 409 });

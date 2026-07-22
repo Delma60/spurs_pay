@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveMerchant } from "@/lib/merchants";
+import { resolveMerchant, resolveKey, type KeyMode } from "@/lib/merchants";
 
 // Merchant apps authenticate with their Spurs Pay secret key:
 //   Authorization: Bearer spk_...   (or  x-api-key: spk_...)
@@ -13,6 +13,12 @@ function rawKey(req: NextRequest): string | null {
 export async function authMerchant(req: NextRequest): Promise<string | null> {
   const key = rawKey(req);
   return key ? resolveMerchant(key) : null;
+}
+
+/** Resolve the calling merchant AND the key's mode (test/live), or null. */
+export async function authKey(req: NextRequest): Promise<{ merchantId: string; mode: KeyMode } | null> {
+  const key = rawKey(req);
+  return key ? resolveKey(key) : null;
 }
 
 export const unauthorized = () =>

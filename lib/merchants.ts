@@ -46,7 +46,7 @@ export async function createMerchantKey(merchantId: string, name: string, mode: 
 export async function listKeys(merchantId: string) {
   return db
     .select({
-      id: apiKeys.id, name: apiKeys.name, prefix: apiKeys.prefix,
+      id: apiKeys.id, name: apiKeys.name, mode: apiKeys.mode, prefix: apiKeys.prefix,
       revoked: apiKeys.revoked, createdAt: apiKeys.createdAt, lastUsedAt: apiKeys.lastUsedAt,
     })
     .from(apiKeys)
@@ -76,8 +76,8 @@ export async function regenerateWebhookSecret(merchantId: string): Promise<strin
   return secret;
 }
 
-/** Resolve a raw merchant key to its merchant id (or null). */
-export async function resolveMerchant(raw: string): Promise<string | null> {
+/** Resolve a raw key to its merchant + mode (or null). Legacy `spk_` keys = test. */
+export async function resolveKey(raw: string): Promise<{ merchantId: string; mode: KeyMode } | null> {
   const [row] = await db
     .select()
     .from(apiKeys)
@@ -85,5 +85,10 @@ export async function resolveMerchant(raw: string): Promise<string | null> {
     .limit(1);
   if (!row) return null;
   void db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, row.id));
-  return row.merchantId;
+  return { merchantId: row.merchantId, mode: (row.mode as KeyMode) ?? "test" };
+}
+
+/** Resolve a raw merchant key to its merchant id (or null). */
+export async function resolveMerchant(raw: string): Promise<string | null> {
+  return (await resolveKey(raw))?.merchantId ?? null;
 }

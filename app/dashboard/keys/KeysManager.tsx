@@ -8,16 +8,26 @@ import { createKeyAction, revokeKeyAction } from "@/app/dashboard/actions";
 interface Key {
   id: string;
   name: string;
+  mode: "test" | "live";
   prefix: string;
   revoked: boolean;
   createdAt: string;
   lastUsedAt: string | null;
 }
 
+function ModeBadge({ mode }: { mode: "test" | "live" }) {
+  return mode === "live" ? (
+    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">Live</span>
+  ) : (
+    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">Test</span>
+  );
+}
+
 export default function KeysManager({ keys }: { keys: Key[] }) {
   const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
+  const [mode, setMode] = useState<"test" | "live">("test");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -25,7 +35,7 @@ export default function KeysManager({ keys }: { keys: Key[] }) {
   async function create() {
     setBusy(true);
     try {
-      const { key } = await createKeyAction(name);
+      const { key } = await createKeyAction(name, mode);
       setShowCreate(false);
       setName("");
       setCreated(key);
@@ -46,7 +56,7 @@ export default function KeysManager({ keys }: { keys: Key[] }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-medium">Secret keys</h2>
-          <p className="mt-1 text-sm text-neutral-500">Authenticate API requests with <code className="text-xs">Authorization: Bearer spk_…</code></p>
+          <p className="mt-1 text-sm text-neutral-500">Authenticate API requests with <code className="text-xs">Authorization: Bearer sk_test_… / sk_live_…</code></p>
         </div>
         <button onClick={() => setShowCreate(true)} className="flex h-9 items-center gap-2 rounded-lg bg-indigo-600 px-3.5 text-sm font-medium text-white hover:bg-indigo-700">
           <Plus size={16} /> New key
@@ -63,6 +73,7 @@ export default function KeysManager({ keys }: { keys: Key[] }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-sm">
                   <span className="font-medium">{k.name}</span>
+                  <ModeBadge mode={k.mode} />
                   {k.revoked && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-500">Revoked</span>}
                 </div>
                 <div className="font-mono text-xs text-neutral-500">{k.prefix}••••••••</div>
@@ -79,6 +90,30 @@ export default function KeysManager({ keys }: { keys: Key[] }) {
       {showCreate && (
         <Modal onClose={() => setShowCreate(false)} title="New API key">
           <input value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="e.g. Production server" className="mt-4 h-10 w-full rounded-lg border border-neutral-300 bg-transparent px-3 text-sm outline-none focus:border-indigo-500 dark:border-neutral-700" />
+
+          <div className="mt-4">
+            <div className="mb-1.5 text-xs font-medium text-neutral-500">Mode</div>
+            <div className="grid grid-cols-2 gap-2">
+              {(["test", "live"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    mode === m
+                      ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10"
+                      : "border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                  }`}
+                >
+                  <div className="font-medium capitalize">{m}</div>
+                  <div className="text-xs text-neutral-500">
+                    {m === "test" ? "sk_test_… — sandbox, no real money" : "sk_live_… — real payments"}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-5 flex justify-end gap-2">
             <button onClick={() => setShowCreate(false)} className="h-9 rounded-lg border border-neutral-300 px-4 text-sm dark:border-neutral-700">Cancel</button>
             <button onClick={create} disabled={busy} className="flex h-9 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700">

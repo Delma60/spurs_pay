@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { authMerchant, unauthorized } from "@/lib/api/auth";
+import { authMerchant, authKey, unauthorized } from "@/lib/api/auth";
 import { createPayout, listPayouts, publicPayout, recipientsFor } from "@/lib/transfers";
 
 const CreateSchema = z.object({
@@ -21,15 +21,15 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/transfers { recipientId, amount, narration? } → send money out
 export async function POST(req: NextRequest) {
-  const merchantId = await authMerchant(req);
-  if (!merchantId) return unauthorized();
+  const auth = await authKey(req);
+  if (!auth) return unauthorized();
 
   const parsed = CreateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload", issues: parsed.error.issues }, { status: 400 });
   }
   try {
-    const payout = await createPayout(merchantId, parsed.data);
+    const payout = await createPayout(auth.merchantId, { ...parsed.data, mode: auth.mode });
     return NextResponse.json({ data: publicPayout(payout) }, { status: 201 });
   } catch (e) {
     // Insufficient balance / unknown recipient → 400
