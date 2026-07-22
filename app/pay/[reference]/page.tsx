@@ -13,7 +13,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ refer
 
   const merchant = await getMerchant(payment.merchantId);
   const amountLabel = formatAmount(payment.amount, payment.currency);
-  const methods = resolveProvider().supportedMethods;
+  // Offer only methods the processor supports AND the merchant has enabled.
+  const allowed = new Set((merchant?.allowedMethods ?? "card,bank_transfer,ussd,wallet").split(","));
+  const methods = resolveProvider().supportedMethods.filter((m) => allowed.has(m));
   const done = payment.status !== "pending";
 
   return (

@@ -59,12 +59,22 @@ export async function revokeKey(merchantId: string, keyId: string) {
   await db.update(apiKeys).set({ revoked: true }).where(and(eq(apiKeys.id, keyId), eq(apiKeys.merchantId, merchantId)));
 }
 
-/** Update merchant profile / webhook URL. */
-export async function updateMerchant(merchantId: string, patch: { businessName?: string; email?: string | null; webhookUrl?: string | null }) {
+/** Update merchant profile / webhook URL / methods / reference affixes. */
+export async function updateMerchant(merchantId: string, patch: {
+  businessName?: string; email?: string | null; webhookUrl?: string | null;
+  allowedMethods?: string;
+  paymentPrefix?: string; paymentSuffix?: string;
+  invoicePrefix?: string; invoiceSuffix?: string;
+  transactionPrefix?: string; transactionSuffix?: string;
+}) {
   const set: Record<string, unknown> = {};
-  if (patch.businessName !== undefined) set.businessName = patch.businessName;
-  if (patch.email !== undefined) set.email = patch.email;
-  if (patch.webhookUrl !== undefined) set.webhookUrl = patch.webhookUrl;
+  for (const k of [
+    "businessName", "email", "webhookUrl", "allowedMethods",
+    "paymentPrefix", "paymentSuffix", "invoicePrefix", "invoiceSuffix",
+    "transactionPrefix", "transactionSuffix",
+  ] as const) {
+    if (patch[k] !== undefined) set[k] = patch[k];
+  }
   if (Object.keys(set).length === 0) return;
   await db.update(merchants).set(set).where(eq(merchants.id, merchantId));
 }

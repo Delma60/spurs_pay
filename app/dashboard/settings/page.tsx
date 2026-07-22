@@ -3,9 +3,17 @@ import { getMerchant } from "@/lib/merchants";
 import { Card, PageHeader } from "@/components/pay-ui";
 import { saveSettingsAction, regenSecretAction } from "../actions";
 
+const METHODS = [
+  { value: "card", label: "Card" },
+  { value: "bank_transfer", label: "Bank transfer" },
+  { value: "ussd", label: "USSD" },
+  { value: "wallet", label: "Wallet" },
+];
+
 export default async function SettingsPage() {
   const user = await requireMerchant();
   const merchant = await getMerchant(user.sub);
+  const allowed = (merchant?.allowedMethods ?? "card,bank_transfer,ussd,wallet").split(",");
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -22,6 +30,20 @@ export default async function SettingsPage() {
             <span className="mb-1.5 block text-xs font-medium text-neutral-500">Contact email</span>
             <input value={merchant?.email ?? user.email ?? ""} readOnly className="h-10 w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950" />
           </label>
+
+          <h2 className="pt-2 text-sm font-medium">Payment methods</h2>
+          <p className="-mt-2 text-xs text-neutral-500">Which methods customers can use at checkout. Unchecked methods are hidden even if the processor supports them.</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {METHODS.map((m) => {
+              const on = allowed.includes(m.value);
+              return (
+                <label key={m.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700">
+                  <input type="checkbox" name="methods" value={m.value} defaultChecked={on} className="accent-indigo-600" />
+                  {m.label}
+                </label>
+              );
+            })}
+          </div>
 
           <h2 className="pt-2 text-sm font-medium">Webhook</h2>
           <label className="block">

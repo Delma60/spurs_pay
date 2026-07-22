@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { FlaskConical, KeyRound, Settings, Zap } from "lucide-react";
+import { KeyRound, Settings } from "lucide-react";
 import AccountMenu from "@/components/AccountMenu";
+import ModeSwitcher from "@/components/ModeSwitcher";
+import type { Mode } from "@/lib/mode";
 
 /**
  * Desktop top bar for the merchant dashboard. The Sidebar renders its own bar on
@@ -13,25 +15,22 @@ export default function TopBar({
   name,
   email,
   businessName,
-  testMode,
+  mode,
+  sandbox,
 }: {
   name?: string;
   email?: string;
   businessName?: string | null;
-  testMode: boolean;
+  mode: Mode;
+  sandbox: boolean;
 }) {
   return (
     <header className="sticky top-0 z-30 hidden h-16 items-center gap-4 border-b border-slate-800 bg-slate-900/80 px-6 backdrop-blur md:flex">
       <div className="flex min-w-0 items-center gap-3">
         <span className="truncate font-medium text-slate-100">{businessName ?? "Your business"}</span>
-        {testMode ? (
-          <span className="flex shrink-0 items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400">
-            <FlaskConical size={11} /> Test mode
-          </span>
-        ) : (
-          <span className="flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
-            <Zap size={11} /> Live
-          </span>
+        <ModeSwitcher mode={mode} />
+        {sandbox && (
+          <span className="shrink-0 text-[11px] text-slate-500">sandbox · no real money</span>
         )}
       </div>
 

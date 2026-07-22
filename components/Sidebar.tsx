@@ -9,8 +9,9 @@ import {
   Users, 
   FileText, 
   Wallet, 
-  Key, 
-  Settings, 
+  Key,
+  Webhook,
+  Settings,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -37,6 +38,7 @@ const NAV_GROUPS = [
     title: "Developer tools",
     items: [
       { name: "API Keys", href: "/dashboard/keys", icon: Key },
+      { name: "Webhooks", href: "/dashboard/webhooks", icon: Webhook },
       { name: "Settings", href: "/dashboard/settings", icon: Settings },
     ],
   }

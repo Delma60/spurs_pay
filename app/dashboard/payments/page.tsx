@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireMerchant } from "@/lib/auth";
 import { listPayments } from "@/lib/payments";
+import { getMode } from "@/lib/mode";
 import { Card, PaymentsList, PageHeader } from "@/components/pay-ui";
 
 const FILTERS = [
@@ -15,7 +16,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const user = await requireMerchant();
   const { status } = await searchParams;
   const active = FILTERS.some((f) => f.code === status) ? status : undefined;
-  const payments = await listPayments(user.sub, { status: active || undefined, limit: 200 });
+  const mode = await getMode();
+  const payments = await listPayments(user.sub, { status: active || undefined, mode, limit: 200 });
 
   return (
     <div>

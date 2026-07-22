@@ -1,4 +1,4 @@
-import { db, payments, payouts, recipients, type Payout, type Recipient } from "@/lib/db";
+import { db, payments, payouts, recipients, merchants, type Payout, type Recipient } from "@/lib/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { resolveProvider } from "@/lib/providers";
@@ -153,7 +153,10 @@ export async function createPayout(
   const provider = resolveProvider(mode);
   if (!provider.transfer) throw new Error("Payouts are unavailable");
 
-  const reference = "spo_" + randomBytes(12).toString("hex");
+  const [ma] = await db
+    .select({ prefix: merchants.transactionPrefix, suffix: merchants.transactionSuffix })
+    .from(merchants).where(eq(merchants.id, merchantId)).limit(1);
+  const reference = (ma?.prefix ?? "spo_") + randomBytes(12).toString("hex") + (ma?.suffix ?? "");
   const [pending] = await db
     .insert(payouts)
     .values({

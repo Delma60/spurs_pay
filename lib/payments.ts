@@ -1,4 +1,4 @@
-import { db, payments, type Payment } from "@/lib/db";
+import { db, payments, merchants, type Payment } from "@/lib/db";
 import { and, desc, eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import type { Instructions, PaymentMethod } from "@/lib/providers/types";
@@ -34,8 +34,14 @@ export function publicPayment(p: Payment) {
   };
 }
 
-function newReference() {
-  return "spy_" + randomBytes(12).toString("hex");
+/** Build a reference with the merchant's payment prefix/suffix. */
+async function newReference(merchantId: string) {
+  const [m] = await db
+    .select({ prefix: merchants.paymentPrefix, suffix: merchants.paymentSuffix })
+    .from(merchants)
+    .where(eq(merchants.id, merchantId))
+    .limit(1);
+  return (m?.prefix ?? "spy_") + randomBytes(12).toString("hex") + (m?.suffix ?? "");
 }
 
 export async function createPayment(merchantId: string, input: CreatePaymentInput) {
@@ -44,7 +50,7 @@ export async function createPayment(merchantId: string, input: CreatePaymentInpu
     .values({
       merchantId,
       mode: input.mode ?? "test",
-      reference: input.reference ?? newReference(),
+      reference: input.reference ?? (await newReference(merchantId)),
       amount: input.amount,
       currency: input.currency ?? "NGN",
       customerEmail: input.customerEmail ?? null,

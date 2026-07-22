@@ -21,8 +21,19 @@ export const merchants = pay.table("merchants", {
   email: text("email"),
   webhookUrl: text("webhook_url"),
   webhookSecret: text("webhook_secret").notNull(),
+  // Payment methods this merchant accepts (subset of what the provider supports).
+  allowedMethods: text("allowed_methods").notNull().default("card,bank_transfer,ussd,wallet"),
+  // Reference affixes — merchant-branded prefixes/suffixes on generated references.
+  paymentPrefix: text("payment_prefix").notNull().default("spy_"),
+  paymentSuffix: text("payment_suffix").notNull().default(""),
+  invoicePrefix: text("invoice_prefix").notNull().default("INV-"),
+  invoiceSuffix: text("invoice_suffix").notNull().default(""),
+  transactionPrefix: text("transaction_prefix").notNull().default("spo_"),
+  transactionSuffix: text("transaction_suffix").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const PAYMENT_METHODS = ["card", "bank_transfer", "ussd", "wallet"] as const;
 
 /** Merchant API keys — how a merchant's app authenticates to Spurs Pay. */
 export const apiKeys = pay.table("api_keys", {
@@ -207,6 +218,35 @@ export const cardTokens = pay.table(
   (t) => [uniqueIndex("card_tokens_token_idx").on(t.token)],
 );
 
+/** A webhook delivery — one per emitted event, with an event ID, attempt count
+ * and backoff schedule so deliveries are logged, retried and can be redelivered. */
+export const webhookDeliveries = pay.table(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    merchantId: text("merchant_id").notNull().references(() => merchants.id, { onDelete: "cascade" }),
+    eventId: text("event_id").notNull(),               // evt_… (stable, sent to the merchant)
+    event: text("event").notNull(),                    // payment.successful | payment.refunded | …
+    paymentReference: text("payment_reference"),
+    url: text("url").notNull(),
+    payload: text("payload").notNull(),                // the exact signed body
+    signature: text("signature").notNull(),
+    status: text("status").notNull().default("pending"), // pending | delivered | failed
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(6),
+    lastStatusCode: integer("last_status_code"),
+    lastError: text("last_error"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("webhook_deliveries_event_idx").on(t.eventId),
+    index("webhook_deliveries_merchant_idx").on(t.merchantId),
+    index("webhook_deliveries_due_idx").on(t.status, t.nextAttemptAt),
+  ],
+);
+
 export type Merchant = typeof merchants.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Refund = typeof refunds.$inferSelect;
@@ -214,3 +254,4 @@ export type CardToken = typeof cardTokens.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type VirtualAccount = typeof virtualAccounts.$inferSelect;
 export type IssuedCard = typeof issuedCards.$inferSelect;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;

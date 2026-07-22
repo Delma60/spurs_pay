@@ -1,14 +1,17 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireMerchant } from "@/lib/auth";
+import type { Mode } from "@/lib/mode";
 import { createMerchantKey, revokeKey, updateMerchant, regenerateWebhookSecret } from "@/lib/merchants";
 import { refundPayment } from "@/lib/refunds";
 import { createInvoice, voidInvoice } from "@/lib/invoices";
 import { createVirtualAccount } from "@/lib/virtual-accounts";
 import { issueCard, setCardFrozen } from "@/lib/cards";
 import { createRecipient, createPayout } from "@/lib/transfers";
+import { redeliver } from "@/lib/webhooks";
 
 export async function createKeyAction(name: string, mode: "test" | "live" = "test"): Promise<{ key: string }> {
   const m = await requireMerchant();
@@ -26,9 +29,15 @@ export async function revokeKeyAction(keyId: string) {
 
 export async function saveSettingsAction(formData: FormData) {
   const m = await requireMerchant();
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  // Keep only the known payment methods, in a stable order.
+  const picked = new Set(formData.getAll("methods").map(String));
+  const methods = ["card", "bank_transfer", "ussd", "wallet"].filter((x) => picked.has(x));
+
   await updateMerchant(m.sub, {
-    businessName: String(formData.get("businessName") ?? "").trim() || undefined,
-    webhookUrl: (String(formData.get("webhookUrl") ?? "").trim() || null),
+    businessName: str("businessName") || undefined,
+    webhookUrl: str("webhookUrl") || null,
+    allowedMethods: methods.join(","),
   });
   revalidatePath("/dashboard/settings");
 }
@@ -37,6 +46,20 @@ export async function regenSecretAction() {
   const m = await requireMerchant();
   await regenerateWebhookSecret(m.sub);
   revalidatePath("/dashboard/settings");
+}
+
+export async function redeliverWebhookAction(id: string) {
+  const m = await requireMerchant();
+  await redeliver(id, m.sub);
+  revalidatePath("/dashboard/webhooks");
+}
+
+/** Switch the dashboard between test and live views. */
+export async function setModeAction(mode: Mode) {
+  await requireMerchant();
+  const c = await cookies();
+  c.set("pay_mode", mode === "live" ? "live" : "test", { path: "/", sameSite: "lax" });
+  revalidatePath("/dashboard", "layout");
 }
 
 export async function refundAction(reference: string, amountMinor?: number, reason?: string) {

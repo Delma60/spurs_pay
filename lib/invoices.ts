@@ -1,11 +1,14 @@
-import { db, invoices, type Invoice } from "@/lib/db";
+import { db, invoices, merchants, type Invoice } from "@/lib/db";
 import { and, desc, eq, count } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { createPayment, getPayment } from "@/lib/payments";
 
 async function nextNumber(merchantId: string): Promise<string> {
   const [row] = await db.select({ n: count() }).from(invoices).where(eq(invoices.merchantId, merchantId));
-  return "INV-" + String(Number(row?.n ?? 0) + 1).padStart(4, "0");
+  const [m] = await db
+    .select({ prefix: merchants.invoicePrefix, suffix: merchants.invoiceSuffix })
+    .from(merchants).where(eq(merchants.id, merchantId)).limit(1);
+  return (m?.prefix ?? "INV-") + String(Number(row?.n ?? 0) + 1).padStart(4, "0") + (m?.suffix ?? "");
 }
 
 export async function listInvoices(merchantId: string) {

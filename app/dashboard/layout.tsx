@@ -2,6 +2,7 @@ import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import { requireMerchant } from "@/lib/auth";
 import { getMerchant } from "@/lib/merchants";
+import { getMode } from "@/lib/mode";
 
 export default async function DashboardLayout({
   children,
@@ -10,8 +11,9 @@ export default async function DashboardLayout({
 }) {
   const user = await requireMerchant();
   const merchant = await getMerchant(user.sub);
-  // Sandbox means no real money is moving — say so loudly in the bar.
-  const testMode = (process.env.PAY_PROVIDER ?? "sandbox").toLowerCase() === "sandbox";
+  const mode = await getMode();
+  // Sandbox means no real money is moving even in live mode — note it quietly.
+  const sandbox = (process.env.PAY_PROVIDER ?? "sandbox").toLowerCase() === "sandbox";
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-slate-900 text-slate-50">
@@ -32,7 +34,8 @@ export default async function DashboardLayout({
           name={user.name}
           email={user.email}
           businessName={merchant?.businessName}
-          testMode={testMode}
+          mode={mode}
+          sandbox={sandbox}
         />
         <div className="mx-auto max-w-7xl p-4 md:p-8">
           {children}
